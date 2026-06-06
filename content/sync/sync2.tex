@@ -1,0 +1,146 @@
+\chapter{Synchronous Model --- Part 2}
+
+\begin{center}
+{\Large\bfseries Synchronous Model --- Part 2}\\[1pt]
+{\small Exam cheat-sheet: \emph{composition, await-dependencies, transition systems, invariants}}
+\end{center}
+\hrule
+\vspace{4pt}
+
+Part~2 covers \textbf{putting components together} (combinational circuits,
+composition, await-ordering) and \textbf{proving safety} (transition systems,
+invariants, inductive invariants).
+
+%==================================================================
+\section{Combinational components \& await-dependencies}
+
+\begin{itemize}
+  \item \textbf{Combinational} = no state variables (e.g.\ \texttt{out:=in1\&in2}).
+        Such an output \emph{awaits} the inputs it reads in the same round
+        (written \texttt{out awaits in1,in2}).
+  \item Composition is \textbf{allowed iff the await-dependency graph is acyclic}
+        (no ``combinational cycle''). Feedback like \texttt{Relay: out:=in} with
+        \texttt{Inverter: in:=\textasciitilde out} is cyclic $\Rightarrow$ disallowed.
+\end{itemize}
+
+\textbf{Recipe (``are await-dependencies acyclic?''):}
+\begin{enumerate}
+  \item For each output, list the inputs it awaits; draw an edge
+        $\text{awaited input}\to\text{output}$.
+  \item Add the wiring edges from composition (an output feeds the equally-named input).
+  \item Look for a cycle. Acyclic $\Rightarrow$ composition well-defined.
+\end{enumerate}
+
+%==================================================================
+\section{Composition operations (block-diagram exercise)}
+
+Three operations build the product, e.g.\ $C[\mathit{out}\mapsto\mathit{temp}]\;|\;
+D[\mathit{in}\mapsto\mathit{temp}]\setminus\mathit{temp}$:
+\begin{itemize}
+  \item \textbf{Rename} $C[\mathit{old}\mapsto\mathit{new}]$: rename a variable
+        (used to make two components share a channel name).
+  \item \textbf{Hide} $C\setminus c$: make channel $c$ \emph{internal} (local);
+        it no longer crosses the outer box.
+  \item \textbf{Parallel} $C\,|\,D$: a name that is an \emph{output of one} and
+        \emph{input of the other} becomes a connecting channel.
+\end{itemize}
+
+\textbf{Recipe (``connect / annotate the block diagram''):}
+\begin{enumerate}
+  \item Apply the renamings to each copy's input/output names first.
+  \item Matching name (output of one $=$ input of the other) $\Rightarrow$ draw an
+        internal arrow between them. If that name is hidden ($\setminus c$), keep the
+        arrow \emph{inside} the outer box.
+  \item Unmatched, non-hidden names $\Rightarrow$ arrows crossing the outer box
+        (external inputs/outputs of the composition).
+  \item Annotate every edge with its \textbf{type} and (renamed) \textbf{name}.
+\end{enumerate}
+
+%==================================================================
+\section{Task graph, precedence \& schedule}
+
+\begin{itemize}
+  \item A \textbf{task} is an output/update block. Precedence $A'<A$ if $A'$
+        produces a variable that $A$ awaits.
+  \item Await-compatibility $\Rightarrow$ the product task graph is acyclic,
+        so at least one schedule exists.
+  \item A \textbf{schedule} is a total order of all tasks respecting every edge
+        (a topological sort). If $A'<^{+}A$ then $A'$ comes before $A$ in
+        \emph{every} schedule.
+\end{itemize}
+
+%==================================================================
+\section{From component to transition system (S, Init, Trans)}
+
+To analyse safety, convert the component:
+\begin{itemize}
+  \item State variables stay; the \texttt{mode} is an \emph{implicit state variable}
+        (part of the state tuple).
+  \item Input/output variables become \textbf{local}; input values are chosen
+        \textbf{nondeterministically} each step.
+  \item \texttt{Init} = the initial assignment; \texttt{Trans} = one round of the
+        reaction for some input choice.
+\end{itemize}
+
+\textbf{Recipe (``give the reachable part of the transition system''):}
+start at the initial state; repeatedly apply every transition (each mode-switch /
+input choice) and add any new state; stop when no new states appear. Keep the mode
+in the tuple.
+
+\textbf{Worked (ESM: modes A,B; \texttt{int x:=0}; A$\,\to\,$B does \texttt{x:=x+1};
+B$\,\to\,$A does \texttt{x:=x-1}):} reachable set is
+\[
+(A,0)\ \rightleftarrows\ (B,1).
+\]
+
+%==================================================================
+\section{Invariants vs.\ inductive invariants (key exercise)}
+
+\begin{keybox}
+\begin{itemize}
+  \item $\varphi$ is an \textbf{invariant} if \emph{every reachable} state satisfies $\varphi$.
+  \item $\varphi$ is an \textbf{inductive invariant} if (1) every \emph{initial} state satisfies $\varphi$, and (2) for every transition $(s,t)$, if $s\models\varphi$ then $t\models\varphi$.
+  \item Inductive invariant $\Rightarrow$ invariant. The converse can fail.
+\end{itemize}
+\end{keybox}
+
+\textbf{Recipe per sub-question} (using the worked ESM above and
+$\varphi_1:\;x=0\lor x=1$):
+\begin{itemize}
+  \item \textbf{Is $\varphi$ an invariant?} Compute the reachable set, check all
+        satisfy $\varphi$. \emph{Yes:} ``all reachable states satisfy $\varphi$.''
+        \emph{No:} give a reachable counterexample state.
+        (Here: yes --- both $(A,0)$ and $(B,1)$ satisfy $\varphi_1$.)
+  \item \textbf{Is $\varphi$ an inductive invariant?} Check base + step. To
+        \emph{disprove}, find \emph{any} state $s$ (need not be reachable) with
+        $s\models\varphi$ but a successor $t\not\models\varphi$.
+        (Here: no --- $(A,1)\models\varphi_1$ but its successor $(B,2)\not\models\varphi_1$.)
+  \item \textbf{Give another invariant $\varphi_2$:} anything true on all reachable
+        states, e.g.\ $x\ge 0$.
+  \item \textbf{Give an inductive invariant $\varphi_3$:} pin the mode to its value,
+        e.g.\ $(\mathit{mode}=A\land x=0)\lor(\mathit{mode}=B\land x=1)$.
+\end{itemize}
+
+\textbf{Recipe to \emph{prove} an inductive invariant:}
+\begin{enumerate}
+  \item \textbf{Base case:} show every initial state satisfies $\varphi$.
+  \item \textbf{Inductive step:} take an arbitrary state $s$ with $s\models\varphi$;
+        for \emph{each} transition, compute $t$ and show $t\models\varphi$
+        (split on the guard: taken vs.\ not taken).
+\end{enumerate}
+
+\textbf{Worked} (state \texttt{int x:=0}, transition ``\texttt{if x<m then x:=x+1}'',
+$\varphi:\;0\le x\le m$): base $x=0$ ok. Step: if $x<m$ then $x{+}1\le m$ and
+$x{+}1>0$; otherwise $x$ unchanged. Either way $0\le x\le m$, so $\varphi$ is an
+inductive invariant.
+
+\begin{keybox}
+\textbf{Trap:} a true property is often \emph{not} inductive on its own. To
+fix it, \textbf{strengthen} it so it captures the relationship among \emph{all}
+state variables (including the mode), as in $\varphi_3$ above.
+\end{keybox}
+
+\vspace{4pt}
+\hrule
+\vspace{2pt}
+{\footnotesize\textbf{Exam triage:} \emph{acyclic await?} draw awaited-input$\to$output edges + wiring edges, check for cycle. \emph{block diagram?} rename first, match names for internal arrows, unmatched = external, annotate types. \emph{reachable set?} BFS from init. \emph{invariant?} check all reachable. \emph{inductive invariant?} disprove by any $s\models\varphi$ with bad successor; prove by base + step. \emph{not inductive?} strengthen with mode constraints.}

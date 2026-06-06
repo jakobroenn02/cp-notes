@@ -1,0 +1,116 @@
+\section*{Continuous Systems II --- Controller Design (PID)}
+
+\textbf{What Exercise 6 always looks like.} You are given a \emph{plant} (physical system) as
+differential equations, e.g. position/velocity. The reference value is $r$. You must:
+(a) a short ``setup'' sub-question (steady-state force, Lipschitz, or explain a plot);
+(b) fill a P-controller \emph{block diagram};
+(c) implement the P-controller in the Python \texttt{f} method and tune $K_P$;
+(d) extend to PD or PID and tune;
+(e/f) \emph{assess quality} or explain a limitation. Same shape every year (quadcopter, pendulum,
+windy car, satellite). Learn the steps below and you can do any of them.
+
+\subsection*{Step 1 --- The error and the three control terms (memorise this)}
+Error $=$ reference $-$ measured output: $\; e(t) = r - x_{\text{meas}}(t)$.
+The control input is the sum of up to three terms:
+\[
+u \;=\; \underbrace{K_P\,e}_{\text{P: current error}}
+\;+\; \underbrace{K_I\!\int e\,dt}_{\text{I: accumulated error}}
+\;+\; \underbrace{K_D\,\tfrac{d}{dt}e}_{\text{D: rate of change}} .
+\]
+Two derivations the exam asks for every time:
+\begin{itemize}
+  \item \textbf{Derivative error:} if $e = r - x$ and $r$ is constant, then
+        $\dfrac{d}{dt}e = -\dfrac{d}{dt}x = -v$ (minus the measured velocity).
+  \item \textbf{Integral error:} introduce a \emph{new state variable} $I$ with
+        $\dfrac{d}{dt}I = e = r - x$. Add it to the state vector and add a $0$ to the initial state.
+\end{itemize}
+So the controllers become (with $v$ = velocity of the measured variable):
+\[
+\text{P}: u = K_P e \qquad
+\text{PD}: u = K_P e - K_D v \qquad
+\text{PID}: u = K_P e - K_D v + K_I I .
+\]
+
+\subsection*{Step 2 --- The block diagram (part b)}
+Fill the boxes/arrows like this (worth easy points):
+\begin{itemize}
+  \item \textbf{Plant box:} its differential equations, output the \emph{measured} variable.
+  \item \textbf{Arrow out of plant:} the measured output (e.g. $z$, $y$, $\varphi$, $r$).
+  \item \textbf{Into controller:} the reference $r$ and the measured output (it computes $e=r-x$).
+  \item \textbf{P-controller box:} $\;u = K_P(r - x)\;$ (use the system's input name: $F$, $T$, $F_y$, \dots).
+  \item \textbf{Arrow out of controller back into plant:} the control input $u$.
+\end{itemize}
+
+\subsection*{Step 3 --- The Python \texttt{f} template (parts c/d)}
+The state vector \texttt{x} holds the plant states, then $I$ (only for PID). \texttt{f} returns the
+derivative of \emph{every} state in the same order. Pattern (quadcopter example, $r=1$):
+\begin{verbatim}
+def f(x, t):
+    Kp, Kd, Ki, r = 10, 7, 4, 1
+    # x[0]=position, x[1]=velocity, x[2]=integral error I
+    e   = r - x[0]
+    F   = Kp*e - Kd*x[1] + Ki*x[2]   # P: drop Kd,Ki ; PD: drop Ki
+    der_pos = x[1]
+    der_vel = F/m - g                # plug in the given plant equation
+    der_I   = r - x[0]               # = e ; only present for PID
+    return [der_pos, der_vel, der_I]
+
+def main():
+    x0 = [0, 0]      # for P / PD
+    x0 = [0, 0, 0]   # for PID  -> add the extra 0 for I
+\end{verbatim}
+Checklist: (i) write $e=r-x_{\text{meas}}$; (ii) build $F$ for the controller type; (iii) copy the
+given plant equations into the \texttt{der\_} lines, inserting $F$; (iv) for PID add \texttt{der\_I = e}
+\emph{and} the extra $0$ in \texttt{x0}. ``Tune $K$'' = run, look at the plot, adjust until the spec
+(e.g. ``within 5 m'', ``settle in 10 s'') is met.
+
+\subsection*{Step 4 --- Assess quality (parts e/f): the 4 metrics}
+\begin{itemize}
+  \item \textbf{Overshoot:} how far the peak goes past $r$.
+  \item \textbf{Rise time:} time to first reach $r$.
+  \item \textbf{Settling time:} time to stop changing (reach steady state).
+  \item \textbf{Steady-state error:} final gap between output and $r$.
+\end{itemize}
+\textbf{Which gain fixes what (state this in the answer):}
+\begin{center}
+\begin{tabular}{ll}
+\hline
+Bigger $K_P$ & faster rise time, but \emph{more} overshoot; SS error stays \\
+Add $K_I$ & removes \emph{steady-state error}; increases overshoot/rise/settling \\
+Add $K_D$ & removes overshoot/oscillation; SS error remains \\
+Full PID & good on all four metrics (this is the goal) \\
+\hline
+\end{tabular}
+\end{center}
+Stock phrasing for a P-controller result: ``System is stable but \emph{not asymptotically} stable
+--- it oscillates around $r$, so there is no steady state (hence no settling time); adding a
+derivative term removes the oscillation.''
+
+\subsection*{Step 5 --- The recurring ``part (a)'' sub-questions}
+\begin{itemize}
+  \item \textbf{Steady-state force} (find input for a target speed): set $\frac{d}{dt}v = 0$ and solve.
+        E.g.\ $\frac{d}{dt}v_x = -\frac{k}{m}v_x + \frac{1}{m}F_x = 0 \Rightarrow F_x = k\,v_x$.
+  \item \textbf{Stability sign:} a system $\frac{d}{dt}s = c\,s$ is asymptotically stable iff the
+        coefficient $c<0$. For $\frac{d}{dt}s = -\frac{K_P}{I}s$ you need $K_P>0$.
+  \item \textbf{Lipschitz argument:} a sum of Lipschitz functions is Lipschitz; the Lipschitz
+        constant of $r^{-n}$ on $r \ge r_{\min}$ is the max $|$derivative$|$, i.e.
+        $n\,r_{\min}^{-(n+1)}$ (since $|{-n}r^{-(n+1)}|$ is decreasing in $r$).
+\end{itemize}
+
+\subsection*{Step 6 --- Two ``explain the plot'' answers seen before}
+\begin{itemize}
+  \item \textbf{Inverted pendulum, pure P, oscillates forever:} the P-controller gives just enough
+        torque to reach the top; at the top $e\approx 0$ so it stops pushing, gravity pulls it back,
+        the error (and torque) grow again, and with no friction this repeats indefinitely.
+  \item \textbf{Windy car / disturbance the PID can't fully cancel:} a PID is \emph{reactive} --- it
+        only acts after an error appears, so it always lags a continuously changing disturbance.
+        The fix is \emph{feedforward}: directly cancel the known disturbance, e.g.\
+        $F_y(t) = -100\sin(t/10)$, the exact inverse of the wind.
+\end{itemize}
+
+\subsection*{Background you may need (from Part 1)}
+\textbf{Euler method} (numerical solution of $\frac{d}{dt}x=f(x,t)$): step
+$\tilde x_{i+1} = \tilde x_i + h\cdot f(\tilde x_i,t_i)$, $t_{i+1}=t_i+h$. Smaller step $h$ = smaller
+error. Runge-Kutta (RK2/RK4) averages several slopes per step for better accuracy.
+\textbf{Open vs closed loop:} open loop ignores the output (no sensors); closed-loop feedback uses
+the measured output to compute $e$ --- all PID controllers are closed-loop.

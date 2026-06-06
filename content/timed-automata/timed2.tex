@@ -1,0 +1,137 @@
+\chapter{Timed Automata \& UPPAAL}
+
+\definecolor{codebg}{HTML}{F5F5F5}
+\lstset{basicstyle=\ttfamily\footnotesize,backgroundcolor=\color{codebg},
+  frame=single,framesep=4pt,xleftmargin=4pt,breaklines=true,
+  showstringspaces=false,columns=fullflexible}
+
+\begin{center}
+{\Large\bfseries Timed Automata \& UPPAAL}\\[1pt]
+{\small Exam cheat-sheet: \emph{clocks, guards/invariants, reachability \& zones, UPPAAL queries}}
+\end{center}
+\hrule
+\vspace{4pt}
+
+%==================================================================
+\section{Anatomy of a timed automaton}
+A finite graph + real-valued \textbf{clocks} that all tick at the same rate.
+\begin{itemize}
+\item \textbf{Locations} (circles; the book calls them ``modes'').
+\item \textbf{Clocks} $x,y,\dots$ -- start at 0, increase with time, can be reset.
+\item \textbf{Guard} on an edge: condition that must hold to \emph{take} the edge, e.g.\ \texttt{x>=3}.
+\item \textbf{Reset} on an edge: \texttt{x:=0} (only allowed assignment to a clock).
+\item \textbf{Invariant} on a location: condition that must stay true to \emph{remain} there, e.g.\ \texttt{y<=2}.
+\item \textbf{Sync label}: \texttt{c!}\,/\,\texttt{c?} for channel communication (see \S\ref{sec:ta-networks}).
+\end{itemize}
+\begin{keybox}
+\textbf{Timed-automaton restriction:} clock terms only appear as $x\sim k$ ($\sim\in\{<,\le,=,\ge,>\}$, $k$ a constant), and the only clock assignment is \texttt{x:=0}.\ (Other variables must have finite types.)
+\end{keybox}
+
+%==================================================================
+\section{Guards vs.\ invariants (don't mix these up)}
+\begin{keybox}
+\textbf{Guard} = \emph{lower-bound enabler} on an edge ($x\ge k$: ``not before''). \quad
+\textbf{Invariant} = \emph{upper-bound deadline} on a location ($x\le k$: ``must leave by''). \\
+Together they form a \textbf{time window} $[\,k_{\text{guard}},\,k_{\text{inv}}\,]$ in which the edge can fire.
+\end{keybox}
+
+%==================================================================
+\section{State \& the two kinds of transition}
+A \textbf{state} is a pair $(\,\ell,\,v\,)$: location $\ell$ + clock valuation $v$ (e.g.\ $x{=}2,y{=}1$).
+\begin{itemize}
+\item \textbf{Delay} $\;(\ell,v)\xrightarrow{\;\delta\;}(\ell,v{+}\delta)$: time $\delta$ passes, \emph{every} clock grows by $\delta$. Allowed only if the location invariant stays true the whole time.
+\item \textbf{Action} $\;(\ell,v)\to(\ell',v')$: take an edge -- its guard must hold now; apply resets to get $v'$. Takes \emph{zero} time.
+\end{itemize}
+\textit{Notation:} $\xrightarrow{\,2\,}$ = delay 2; plain $\to$ = take an edge.
+
+%==================================================================
+\section{The recurring exam exercise (Exploration of Timed Automata)}
+Given an automaton with clocks $x,y$ and goal locations, you must answer:
+
+\textbf{(a) Is location $L$ reachable?} Try to find \emph{any} run (delays + edges) from
+$(\,\text{init},x{=}0,y{=}0\,)$ to $L$. If a guard can never be satisfied on every path, it is unreachable.
+
+\textbf{(b) Give a timed transition sequence.} Write the alternating delay/action run, e.g.
+\[
+(A,0,0)\xrightarrow{1}(A,1,1)\to(B,1,0)\xrightarrow{3}(B,4,3)\to(C,4,3)\to(E,4,3).
+\]
+
+\textbf{(c) Fastest time to reach $L$ + witness.}
+\begin{enumerate}
+\item At every location delay the \emph{minimum} needed to satisfy the next guard's lower bound -- no extra waiting.
+\item Sum all the delays along that run = the answer; the run itself is the witness.
+\end{enumerate}
+\textit{(In UPPAAL: Options $\to$ Diagnostic trace $\to$ Fastest, then verify \texttt{E<> L}.)}
+
+\textbf{(d) Reachable zones ``upon entry'' and ``after delay''} (as difference constraints):
+\begin{itemize}
+\item \textbf{Entry zone} = valuations the moment you arrive (right after the incoming edge's resets).
+\item \textbf{After delay} = apply \emph{delay}: let time pass, bounded by the location invariant. Geometrically the entry region slides \emph{diagonally up-right} (both clocks $+\delta$) until the invariant stops it.
+\end{itemize}
+Example: $A$ entry $x{=}0\wedge y{=}0$, after delay $x{=}y\wedge 0\le x\le2$;\;
+$C$ entry $x\ge4\wedge y\le4\wedge1\le x{-}y\le2$, after delay same but $y\le5$.
+
+\textbf{(e) Weaken a guard to make $L$ reachable.} Loosen the blocking bound.
+\begin{keybox}
+\centering ``Weaker'' = lets \emph{more} values through: \texttt{x<=7} is weaker than \texttt{x<=5}; \texttt{x>=2} is weaker than \texttt{x>=4}.
+\end{keybox}
+Find the guard that blocks every path to $L$ and relax it just enough (e.g.\ change \texttt{y<=2} to \texttt{y<=4}).
+
+%==================================================================
+\section{Zones \& difference constraints}
+A \textbf{zone} = a conjunction of constraints of the form $x\sim k$ and $x-y\sim k$ (a ``difference constraint''). It compactly represents infinitely many clock valuations. The clock \emph{difference} $x-y$ is fixed by delay (both grow together) and only changes on a reset. UPPAAL stores zones as \textbf{DBMs} (Difference Bound Matrices).
+\begin{itemize}
+\item \textbf{Delay}: drop upper bounds on individual clocks (keep differences) up to the invariant.
+\item \textbf{Guard}: intersect the zone with the guard.
+\item \textbf{Reset} \texttt{y:=0}: set $y$ to 0 (project onto the $x$-axis).
+\end{itemize}
+
+%==================================================================
+\section{Networks, channels \& special locations}
+\label{sec:ta-networks}
+Several automata run in parallel; they synchronize on channels.
+\begin{itemize}
+\item \textbf{Binary channel} \texttt{c}: one \texttt{c!} (send) fires together with one \texttt{c?} (receive), at the same instant.
+\item \textbf{Broadcast channel}: one \texttt{c!} fires with \emph{all} ready \texttt{c?} receivers at once (one-to-many). A sender with no receivers still fires.
+\item \textbf{Urgent location}: time may not pass here (leave immediately, 0 delay).
+\item \textbf{Committed location}: like urgent, but the \emph{next} transition must come from a committed location -- used for atomic multi-step updates.
+\end{itemize}
+
+%==================================================================
+\section{UPPAAL query language}
+$P,Q$ are state conditions like \texttt{Train.Crossing}, \texttt{x>=5}, \texttt{buffer<=0}.
+\begin{center}\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+Meaning & Query & Reading\\
+\midrule
+Possibly (reachable) & \texttt{E<> P} & some run reaches a state with $P$\\
+Invariant / safety & \texttt{A[] P} & $P$ holds in \emph{all} states of \emph{all} runs\\
+Possibly-invariant & \texttt{E[] P} & some run keeps $P$ true forever\\
+Eventually & \texttt{A<> P} & every run eventually reaches $P$\\
+Leads-to & \texttt{P --> Q} & whenever $P$, then later $Q$\\
+No deadlock & \texttt{A[] not deadlock} & system never gets stuck\\
+Max value & \texttt{sup\{cond\}: expr} & largest \texttt{expr} over states with \texttt{cond}\\
+\bottomrule
+\end{tabular}
+\end{center}
+\textbf{Common patterns:}
+\begin{lstlisting}
+E<> Task.Done and time<=30        // can finish within 30?
+A[] not (T0.Error or T1.Error)    // no task ever misses a deadline
+A[] player.buffer <= 4000 || time >= SECOND   // bound holds in 1st second
+sup{time <= SECOND}: player.buffer            // biggest buffer in 1st second
+\end{lstlisting}
+\textbf{Minimum completion time:} binary-search the bound $K$ in \texttt{E<> all.Done and time<=K}, \emph{or} ask for the fastest diagnostic trace of \texttt{E<> all.Done} and read \texttt{time} in the simulator.
+
+%==================================================================
+\section{Fischer's mutual exclusion (timed protocol)}
+Each process uses a shared \texttt{id} variable + a clock with the same bound $k$ on \emph{wait} (guard) and \emph{set} (invariant). Timing guarantees only one process enters the critical section.
+\begin{keybox}
+\centering Verify mutual exclusion: \texttt{A[] not (P1.cs and P2.cs)} \quad(no two processes in the critical section together).
+\end{keybox}
+
+\vspace{4pt}
+\hrule
+\vspace{2pt}
+{\footnotesize\textbf{Exam triage:} \emph{reachable?} find any run / \texttt{E<> L}. \emph{fastest?} delay the minimum each step, sum delays. \emph{zone after delay?} slide entry region diagonally up to the invariant. \emph{weaken guard?} loosen the blocking bound (\texttt{<=} bigger / \texttt{>=} smaller). \emph{safety?} \texttt{A[] not bad}. \emph{liveness?} \texttt{A<> good} or \texttt{P --> Q}. \emph{deadlock?} \texttt{A[] not deadlock}. \emph{max value?} \texttt{sup\{\dots\}}.}

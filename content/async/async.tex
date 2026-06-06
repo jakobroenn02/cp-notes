@@ -1,0 +1,105 @@
+\chapter{Asynchronous Model}
+
+\begin{center}
+{\Large\bfseries Asynchronous Model}\\[1pt]
+{\small Exam cheat-sheet: \emph{process anatomy, parallel composition, fairness, Peterson, reachability}}
+\end{center}
+\hrule
+\vspace{4pt}
+
+%==================================================================
+\section{What you are given (anatomy of a process)}
+An \textbf{asynchronous process} $P$ has: input channels $I$, output channels $O$, state variables $S$ (with \texttt{Init}), and a set of \textbf{tasks}. Every task is \texttt{guard $\rightarrow$ update}; a task fires only when its guard holds (it is \emph{enabled}). \textbf{Exactly one task fires per step.} Three task kinds:
+\begin{itemize}
+  \item \textbf{Input task} (on channel $x$): reads $S\cup\{x\}$, writes $S$. Action $s \xrightarrow{x?v} t$.
+  \item \textbf{Internal task}: reads $S$, writes $S$. Action $s \xrightarrow{\varepsilon} t$ (silent).
+  \item \textbf{Output task} (on channel $y$): reads $S$, writes $S\cup\{y\}$. Action $s \xrightarrow{y!v} t$.
+\end{itemize}
+A guard with no condition is always enabled. If several tasks are enabled, any one may be chosen (\emph{interleaving}).
+
+%==================================================================
+\section{Parallel composition (the main exam question)}
+Format is always: two components, a composition expression like
+$\;A[\,out_A \mapsto temp\,]\;|\;B[\,in_B \mapsto temp\,]\setminus temp$,
+then parts (a)--(d). Read the expression like this:
+\begin{itemize}
+  \item $[\,old \mapsto new\,]$ = \textbf{rename} that channel (relabelling), so the two components share a name.
+  \item $|$ = compose; $\setminus temp$ = \textbf{hide} channel \texttt{temp} (it becomes internal, not visible outside).
+\end{itemize}
+
+\textbf{(a) Connect the block diagram.} External input $\rightarrow$ first component. Wherever an \emph{output channel of one} was renamed to the \emph{input channel of the other} (same new name, e.g.\ \texttt{temp}), draw an arrow between them. The remaining external output leaves the outer block.
+
+\textbf{(b) Label edges} with the channel \emph{type} and \emph{name} (e.g.\ \texttt{int temp}). The hidden channel keeps its name but lives inside the outer box.
+
+\textbf{(c) List the tasks of the composition} --- this is the scored core. Rules:
+\begin{itemize}
+  \item \textbf{Input tasks} = input tasks acting on channels still external (not hidden). Copy them unchanged.
+  \item \textbf{Output tasks} = output tasks on channels still external. Copy them unchanged.
+  \item \textbf{Internal tasks} = \emph{each matched pair} on the hidden channel becomes \emph{one} internal task: if $A$ has output task \texttt{G1 $\rightarrow$ U1} producing \texttt{temp}, and $B$ has input task \texttt{G2 $\rightarrow$ U2} consuming \texttt{temp}, the composition has
+  $$(\texttt{G1 \& G2}) \;\rightarrow\; \texttt{U1; U2}$$
+  Run U1 then U2; the \texttt{temp} value flows from the first into the second. Then \textbf{simplify} (substitute \texttt{temp} away --- it is a local, not part of the state).
+  \item Plus any \emph{pre-existing} internal tasks of either component, unchanged.
+\end{itemize}
+
+\textbf{(d) Give an execution} for a given input (and sometimes output) sequence.
+\begin{itemize}
+  \item State = tuple of the components' state variables, e.g.\ $(x,y)$. \texttt{temp} is \textbf{not} in the state.
+  \item One task per step. Label transitions $\xrightarrow{in?v}$ (input), $\xrightarrow{\varepsilon}$ (internal), $\xrightarrow{out!v}$ (output).
+  \item Strategy: feed an input, fire the internal task to push the value through, then output when the target value is ready. Match the required output sequence exactly.
+\end{itemize}
+
+%==================================================================
+\section{Fully worked template (Plus/Minus)}
+\textbf{Given:} \texttt{Plus}: $x{:=}0$;\; $P_1\!: x{:=}x{+}inp$ (input), $P_2\!: outp{:=}x$ (output). \quad
+\texttt{Minus}: $y{:=}0$;\; $M_1\!: y{:=}y{-}in_M$ (input), $M_2\!: out_y{:=}y$ (output). \quad
+Composition $\texttt{Plus}[outp\mapsto temp]\;|\;\texttt{Minus}[in_M\mapsto temp]\setminus temp$.
+
+\textbf{(c) Tasks of the composition:}
+\begin{itemize}
+  \item \textbf{input:} $x := x + inp$ \hfill (= $P_1$, still external)
+  \item \textbf{internal:} $temp := x;\; y := y - temp$ \;$\Rightarrow$\; simplified $y := y - x$ \hfill (matched $P_2;M_1$ on \texttt{temp})
+  \item \textbf{output:} $out_y := y$ \hfill (= $M_2$, still external)
+\end{itemize}
+
+\textbf{(d) Execution} for input $-1,\,2,\,-1$ and output $1,\,0$ (state $(x,y)$):
+$$(0,0)\xrightarrow{inp?-1}(-1,0)\xrightarrow{\varepsilon}(-1,1)\xrightarrow{out_y!1}(-1,1)\xrightarrow{inp?2}(1,1)\xrightarrow{\varepsilon}(1,0)\xrightarrow{out_y!0}(1,0)\xrightarrow{inp?-1}(0,0)$$
+(internal step computes $y:=y-x$; output reads current $y$).
+
+%==================================================================
+\section{Fairness questions (short-answer)}
+For each \emph{output} and \emph{internal} task you may assume: \textbf{none}, \textbf{weak}, or \textbf{strong} fairness. Definitions to quote:
+\begin{itemize}
+  \item \textbf{Weak fairness} to task $A$: if $A$ is \emph{almost always enabled} (continuously, with finitely many exceptions), then $A$ is taken infinitely often.
+  \item \textbf{Strong fairness} to task $A$: if $A$ is \emph{infinitely often enabled}, then $A$ is taken infinitely often.
+\end{itemize}
+\begin{keybox}
+\textbf{Decision rule:} use \textbf{strong} fairness when the task keeps switching enabled$\leftrightarrow$disabled (its guard depends on a changing variable); \textbf{weak} fairness suffices when, once enabled, it stays enabled.
+\end{keybox}
+Quotable facts:
+\begin{itemize}
+  \item Fairness restricts \emph{infinite executions} only --- it does \textbf{not} change the set of reachable states or any safety property.
+  \item ``Eventually''/liveness requirements may need fairness; safety (``never bad'') never does.
+  \item Merge process (two queues $\to$ one output): weak fairness on both output tasks suffices. Unreliable FIFO: strong fairness on the deliver task, none on loss/duplicate.
+\end{itemize}
+
+%==================================================================
+\section{Mutual exclusion / Peterson facts (short-answer)}
+Two requirements to name: \textbf{Mutual exclusion} (never both in \texttt{Crit} --- a \emph{safety} property, provable by an invariant) and \textbf{deadlock freedom} (if someone wants in, someone gets in). Peterson uses \texttt{flag1, flag2, turn}: a process raises its flag, sets \texttt{turn} to the \emph{other} ID, and waits until the other's flag is down \emph{or} \texttt{turn} favours it.
+\begin{keybox}
+To make ``whoever wants in eventually gets in'' hold, assume \textbf{weak fairness} on the entry tasks.
+\end{keybox}
+
+%==================================================================
+\section{Reachability / \texttt{Post} (verifying a property)}
+To check whether property $\varphi$ is an invariant, check that $\neg\varphi$ is \emph{not reachable}. Compute reachable states by BFS: $reach_0 = \texttt{Init}$, $reach_{i+1}=reach_i \cup \texttt{Post}(reach_i)$, stop when no new states appear or $\neg\varphi$ is hit. \textbf{Symbolic} $\texttt{Post}(A,Trans)$ in 3 steps:
+\begin{enumerate}
+  \item \textbf{Conjoin} region $A$ with the transition formula \texttt{Trans} (over $S$ and $S'$).
+  \item \textbf{Existentially quantify} the old variables $S$ (project them out).
+  \item \textbf{Rename} primed $S'$ back to $S$.
+\end{enumerate}
+Example: $A:\;0\le x\le 10$, $Trans:\;x'=2x+1$ gives $\texttt{Post}(A)=\{1\le x\le 21\}$.
+
+\vspace{4pt}
+\hrule
+\vspace{2pt}
+{\footnotesize\textbf{Exam triage:} \emph{composition tasks?} input/output = unchanged external tasks; internal = matched pair on hidden channel, simplified. \emph{execution?} feed input, fire internal $\varepsilon$, emit output. \emph{fairness?} strong if guard toggles, weak if it stays enabled. \emph{invariant?} prove $\neg\varphi$ unreachable via \texttt{Post} BFS. \emph{Peterson?} mutual exclusion (safety) + deadlock freedom; weak fairness for liveness.}

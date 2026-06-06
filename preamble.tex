@@ -1,0 +1,71 @@
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage[most]{tcolorbox}
+
+\definecolor{NotesBlue}{HTML}{1F4E79}
+\definecolor{NotesGreen}{HTML}{1E6F5C}
+\definecolor{NotesGold}{HTML}{9A6A00}
+\definecolor{NotesGray}{HTML}{4B5563}
+\definecolor{NotesBackground}{HTML}{F7FAFC}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=NotesBlue,
+  urlcolor=NotesGreen,
+  citecolor=NotesGold,
+  pdftitle={Exam Notes: Model Types}
+}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.75em}
+\setlist[itemize]{leftmargin=1.4em}
+\setlist[enumerate]{leftmargin=1.6em}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{Exam Notes: Model Types}
+\fancyhead[R]{\leftmark}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\setlength{\headheight}{13.6pt}
+
+\newtcolorbox{defbox}[1][]{
+  breakable,
+  enhanced,
+  colback=NotesBackground,
+  colframe=NotesBlue,
+  coltitle=black,
+  title=Definition,#1
+}
+
+\newtcolorbox{keybox}[1][]{
+  breakable,
+  enhanced,
+  colback=white,
+  colframe=NotesGreen,
+  coltitle=black,
+  title=Key Idea,#1
+}
+
+\newtcolorbox{examplebox}[1][]{
+  breakable,
+  enhanced,
+  colback=white,
+  colframe=NotesGold,
+  coltitle=black,
+  title=Example,#1
+}
+
+\newcommand{\topic}[1]{\section{#1}}
+\newcommand{\subtopic}[1]{\subsection{#1}}
+\newcommand{\notation}[1]{\textcolor{NotesGray}{\textbf{#1}}}

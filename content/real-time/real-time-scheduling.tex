@@ -1,0 +1,118 @@
+\chapter{Real-Time Scheduling}
+
+\definecolor{codebg}{HTML}{F5F5F5}
+\lstset{basicstyle=\ttfamily\footnotesize,backgroundcolor=\color{codebg},
+  frame=single,framesep=4pt,xleftmargin=4pt,breaklines=true,
+  language=Python,showstringspaces=false,columns=fullflexible}
+
+\begin{center}
+{\Large\bfseries Real-Time Scheduling}\\[1pt]
+{\small Exam cheat-sheet: \emph{terminology, cyclic executives, FPS/EDF tests, response-time analysis, UPPAAL}}
+\end{center}
+\hrule
+\vspace{4pt}
+
+\section{Terminology (learn the symbols)}
+A periodic task $\tau_i$ releases a new job every $T_i$ time units.
+\begin{center}\small
+\begin{tabular}{@{}llll@{}}
+\toprule
+$T_i$ & period & $C_i$ & cost / WCET (worst-case exec. time)\\
+$D_i$ & relative deadline & $R_i$ & worst-case response time\\
+$r_{i,j}$ & release time of job $j$ & $d_{i,j}$ & absolute deadline\\
+\bottomrule
+\end{tabular}
+\end{center}
+\begin{keybox}
+Feasible schedule: every task finishes before its deadline, i.e. $R_i\le D_i$ for all $i$.
+\end{keybox}
+Many tests assume implicit deadlines: $D_i=T_i$.
+
+\section{Total utilization (always compute this first)}
+\begin{keybox}
+$U=\displaystyle\sum_{i=1}^{N}\frac{C_i}{T_i}$, the fraction of CPU time demanded.
+\end{keybox}
+If $U>1$ the task set is unschedulable on one CPU. $U\le 1$ is necessary, but not always enough for FPS.
+
+\begin{lstlisting}
+def utilization(tasks):   # tasks = [(C, T), ...]
+    return sum(C / T for C, T in tasks)
+\end{lstlisting}
+
+\section{Cyclic executive (offline table schedule)}
+Build one repeating table; periods must line up on a fixed tick.
+\begin{keybox}
+Minor cycle $T_m=\gcd(T_1,\dots,T_N)$ and major cycle $T_M=\operatorname{lcm}(T_1,\dots,T_N)$.
+\end{keybox}
+Recipe: $T_m$ is the scheduler tick, $T_M$ is the full repeating frame, and each job must fit before its deadline.
+
+\section{Schedulability test vocabulary}
+\begin{itemize}
+\item Sufficient: pass $\Rightarrow$ definitely meets all deadlines.
+\item Necessary: fail $\Rightarrow$ definitely misses a deadline.
+\item Exact: sufficient and necessary.
+\end{itemize}
+
+\section{Utilization test for FPS (Rate-Monotonic)}
+Shorter period $\Rightarrow$ higher priority. Then apply:
+\begin{keybox}
+$U=\displaystyle\sum_{i=1}^N\frac{C_i}{T_i}\le N\left(2^{1/N}-1\right)$, a sufficient test for implicit deadlines.
+\end{keybox}
+If the bound fails, the result is inconclusive; use response-time analysis.
+
+\section{Utilization test for EDF}
+EDF runs the job with the earliest absolute deadline first.
+\begin{keybox}
+$\displaystyle\sum_{i=1}^N\frac{C_i}{T_i}\le 1$, an exact test for implicit deadlines.
+\end{keybox}
+EDF schedules anything up to full CPU use, but overload behavior can be abrupt.
+
+\section{Response-Time Analysis (RTA) -- main FPS computation}
+For each task, compute the worst-case response time and check $R_i\le D_i$.
+\begin{keybox}
+$R_i=C_i+\displaystyle\sum_{j\in hp(i)}\left\lceil\frac{R_i}{T_j}\right\rceil C_j$
+\end{keybox}
+Solve by iteration:
+\[
+R_i^{0}=C_i,\qquad
+R_i^{n+1}=C_i+\sum_{j\in hp(i)}\left\lceil\frac{R_i^{n}}{T_j}\right\rceil C_j.
+\]
+Stop when values stabilize; if they grow past $D_i$, the task misses its deadline.
+
+\subsection*{Worked example}
+\begin{center}\small
+\begin{tabular}{@{}ccccc@{}}
+\toprule
+task & $T$ & $C$ & priority & higher-prio set $hp$\\
+\midrule
+c & 20 & 5 & high & --\\
+b & 40 & 10 & mid & $\{c\}$\\
+a & 80 & 40 & low & $\{c,b\}$\\
+\bottomrule
+\end{tabular}
+\end{center}
+Task $c$: $R_c=5\le 20$. Task $b$: $R_b=10\to 15\to 15$. Task $a$: $R_a=40\to 60\to 75\to 80\to 80$. All deadlines are met.
+
+\begin{lstlisting}
+import math
+
+def response_time(i, C, T, hp_of_i):
+    R = C[i]
+    while True:
+        nxt = C[i] + sum(math.ceil(R / T[j]) * C[j] for j in hp_of_i)
+        if nxt == R:
+            return R
+        R = nxt
+\end{lstlisting}
+
+\section{Schedulability in UPPAAL}
+Model each task and a scheduler; a task enters an Error location if it misses its deadline.
+\begin{keybox}
+\texttt{A[] not (Task0.Error or Task1.Error or Task2.Error or Task3.Error)}
+\end{keybox}
+If the property holds, all deadlines are always met.
+
+\vspace{3pt}
+\hrule
+\vspace{2pt}
+{\footnotesize\textbf{Exam triage:} compute $U$ first. If $U>1$, stop: unschedulable. EDF is exact with $U\le 1$. FPS: try $U\le N(2^{1/N}-1)$, then use RTA if needed. Cyclic executive: $T_m=\gcd$, $T_M=\operatorname{lcm}$. UPPAAL: verify \texttt{A[] not (... Error)}.}

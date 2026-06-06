@@ -1,0 +1,100 @@
+\chapter{Safety Requirements --- Part 2}
+
+\begin{center}
+{\Large\bfseries Safety Requirements --- Part 2}\\[1pt]
+{\small Exam cheat-sheet: \emph{safety monitors, symbolic verification, Post/BFS, data structures}}
+\end{center}
+\hrule
+\vspace{4pt}
+
+%==================================================================
+\section{Safety monitor: setup to quote}
+A \textbf{safety monitor} $M$ watches a system's behavior and moves to an \textbf{error mode} when something forbidden happens. As an extended state machine:
+\begin{itemize}
+  \item The \textbf{inputs of $M$} = the input/output variables of the system being monitored (it reads what the system does).
+  \item $M$ has \textbf{no output back into the system} --- it observes, never influences.
+  \item A subset $F$ of modes is declared \textbf{accepting/error}. ``Bad behavior'' = an execution that drives $M$ into $F$.
+\end{itemize}
+\begin{keybox}
+\textbf{Verification:} the property holds $\iff$ ``$M.\text{mode}\notin F$'' is an \textbf{invariant} of the composition $C\,\|\,M$. A safety property is thereby reduced to an invariant check.
+\end{keybox}
+
+%==================================================================
+\section{The main exam question: Safety Monitor (a)--(b)}
+You are given an output alphabet and a forbidden-pattern property in words (e.g.\ ``a $1$ is never immediately followed by a $0$''), then:
+
+\textbf{(a) Design the monitor as an extended state machine.} Recipe:
+\begin{enumerate}
+  \item Decide what you must \emph{remember} to detect the bad pattern --- usually ``how much of the forbidden prefix have I seen?'' Make one mode per such situation.
+  \item \textbf{Start mode} = nothing dangerous seen yet.
+  \item Add a mode for each partial match of the bad pattern (e.g.\ ``the last output was $1$'').
+  \item The transition that \emph{completes} the forbidden pattern goes to the \textbf{error mode} $e$ (this is $F$).
+  \item Make $e$ a \textbf{sink}: all symbols loop back to $e$ (once bad, stays bad).
+  \item Every mode needs an outgoing edge for \emph{every} symbol of the alphabet (the monitor is total/deterministic).
+\end{enumerate}
+
+\textbf{(b) Does a given component satisfy the property?}
+\begin{itemize}
+  \item \textbf{Yes:} argue that no execution of the component can produce the forbidden output sequence (e.g.\ inspect the component's reachable outputs or structure).
+  \item \textbf{No:} give the \textbf{prefix of a counterexample execution} --- a concrete input/output sequence of the component that produces the forbidden pattern. Provide states and outputs as in execution-trace questions.
+\end{itemize}
+
+%==================================================================
+\section{Fully worked template}
+Output alphabet $\{0,1,2\}$. Property: ``output $1$ is never immediately followed by output $0$.''
+
+\textbf{(a) Monitor} with modes $s$ (start), $q_1$ (last output was $1$), $e$ (error, $F=\{e\}$):
+\begin{itemize}
+  \item $s \xrightarrow{0,\,2} s$ \hfill (no pending $1$)
+  \item $s \xrightarrow{1} q_1$ \hfill (just saw a $1$)
+  \item $q_1 \xrightarrow{1} q_1$ \hfill (still ends in $1$)
+  \item $q_1 \xrightarrow{2} s$ \hfill ($1$ not followed by $0$; safe)
+  \item $q_1 \xrightarrow{0} e$ \hfill (\textbf{$1$ then $0$ = violation})
+  \item $e \xrightarrow{0,\,1,\,2} e$ \hfill (sink)
+\end{itemize}
+Verify: check that ``$\text{mode}\neq e$'' is an invariant of $C\,\|\,M$.
+
+\textbf{(b)} A length-3 counterexample prefix that emits $\dots1$ then $0$ drives the monitor to $e$; provide the state sequence with outputs.
+
+%==================================================================
+\section{Symbolic verification machinery (short-answer)}
+\textbf{Region} = a set of states represented as a formula over the variables. A transition system is represented symbolically by:
+\begin{itemize}
+  \item $\varphi_I$ over $S$ for initial states; \quad $\varphi_T$ over $S\cup S'$ for transitions (primed = next value).
+  \item Build $\varphi_T$ from reaction code: assignments become $x'=e$, unchanged vars add $y'=y$, then \textbf{existentially quantify out} local/input/output variables.
+\end{itemize}
+\textbf{Operations on regions} (for formulas):
+\begin{itemize}
+  \item $\texttt{Conj}(A,B)=A\wedge B$; \quad $\texttt{Disj}(A,B)=A\vee B$; \quad $\texttt{Diff}(A,B)=A\wedge\neg B$.
+  \item $\texttt{IsEmpty}(A)$ = satisfiability (SAT) test; \quad $\texttt{Rename}(A,X,Y)$ = textual substitution.
+  \item $\texttt{Exists}(\varphi,x)=\varphi[x\!\mapsto\!0]\vee\varphi[x\!\mapsto\!1]$ for a Boolean $x$ (quantifier elimination).
+\end{itemize}
+
+%==================================================================
+\section{Checking an invariant symbolically (\texttt{Post} + BFS)}
+$\varphi$ is an invariant $\iff$ the error set $\neg\varphi$ is \textbf{unreachable}.
+\begin{keybox}
+$\texttt{Post}(A,\texttt{Trans})=\texttt{Rename}(\texttt{Exists}(\texttt{Conj}(A,\texttt{Trans}),S),\,S',\,S)$
+\quad --- \textbf{(1)} conjoin $A$ with \texttt{Trans}, \textbf{(2)} existentially quantify the old vars $S$, \textbf{(3)} rename $S'\!\to\!S$.
+\end{keybox}
+
+\textbf{Symbolic BFS:} \texttt{Reach := Init; New := Init;}\\
+while \texttt{New} not empty: if $\texttt{Conj}(\texttt{New},\varphi_{err})$ nonempty $\Rightarrow$ report \emph{reachable} (property fails);\\
+else $\texttt{New}:=\texttt{Diff}(\texttt{Post}(\texttt{New}),\texttt{Reach})$, $\texttt{Reach}:=\texttt{Disj}(\texttt{Reach},\texttt{New})$.\\
+If \texttt{New} empties with no error hit $\Rightarrow$ property holds.
+
+\textbf{Worked \texttt{Post}:} $A:\;0\le x\le 10$, $\texttt{Trans}:\;x'=2x+1$ $\Rightarrow$ conjoin, eliminate $x$, rename $\Rightarrow \boxed{1\le x\le 21}$.
+
+%==================================================================
+\section{Data structures (one-liners)}
+\begin{itemize}
+  \item Naive formula representation grows without bound and needs SAT (NP-complete) for \texttt{IsEmpty}.
+  \item \textbf{Boolean} variables $\to$ \textbf{(RO)BDDs} (Reduced Ordered Binary Decision Diagrams).
+  \item \textbf{Clocks} (real, timed automata) $\to$ \textbf{DBMs} (Difference Bound Matrices); a \emph{zone} = conjunction of constraints $x\sim n$ and $x-y\sim n$.
+  \item General real-valued variables $\to$ polyhedra.
+\end{itemize}
+
+\vspace{4pt}
+\hrule
+\vspace{2pt}
+{\footnotesize\textbf{Exam triage:} \emph{design monitor?} one mode per partial bad-pattern match; error sink; every symbol has an edge from every mode. \emph{verify?} check ``mode$\,\neq e$'' is invariant of $C\,\|\,M$. \emph{counterexample?} concrete trace reaching error mode. \emph{Post?} conjoin, $\exists$-quantify $S$, rename $S'{\to}S$. \emph{data structure?} Booleans $\to$ BDD; clocks $\to$ DBM; reals $\to$ polyhedra.}

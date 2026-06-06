@@ -1,0 +1,114 @@
+\chapter{The Timed Model}
+
+\definecolor{codebg}{HTML}{F5F5F5}
+\lstset{basicstyle=\ttfamily\footnotesize,backgroundcolor=\color{codebg},
+  frame=single,framesep=4pt,xleftmargin=4pt,breaklines=true,
+  language=Python,showstringspaces=false,columns=fullflexible}
+
+\begin{center}
+{\Large\bfseries The Timed Model}\\[1pt]
+{\small Exam cheat-sheet: \emph{timed processes, timed transitions, modelling delays, composition, Fischer}}
+\end{center}
+\hrule
+\vspace{4pt}
+
+%==================================================================
+\section{What a timed process is}
+\begin{keybox}
+\centering Timed process $TP=(P,\,CI)$ = an \textbf{asynchronous process} $P$ (some state vars are \texttt{clock}) $+$ a \textbf{clock invariant} $CI$ (a Boolean condition over the clocks).
+\end{keybox}
+Inputs, outputs, states, initial states, and actions (internal/input/output) are defined exactly as in the asynchronous model. The new ingredient is \textbf{clocks}: real-valued, $\ge0$, all tick at the same rate, can be tested and reset (\texttt{x:=0}) on mode-switches. Called the ``\emph{semi-synchronous}'' model (mix of async actions + synchronous time).
+
+%==================================================================
+\section{The two kinds of transition}
+A \textbf{state} is (mode, clock values), e.g.\ $(\text{off},x{=}0.5)$.
+\begin{itemize}
+\item \textbf{Timed (delay)} $\;s\xrightarrow{\;\delta\;}s{+}\delta$: time $\delta>0$ passes; \emph{every} clock grows by $\delta$, non-clock variables unchanged.
+\item \textbf{Discrete (action)} $\;s\to s'$: take an edge (input \texttt{?}, output \texttt{!}, or internal). Guard must hold; apply resets. Takes \textbf{zero} time.
+\end{itemize}
+\begin{keybox}
+\textbf{When is a delay $\delta$ legal?} The clock invariant $CI$ must stay true for the \emph{whole} interval $[0,\delta]$. For a convex $CI$ (the usual case) it is enough to check the \textbf{endpoints} $s$ and $s{+}\delta$.
+\end{keybox}
+\textit{Example (invariant $y\le2$):} from $(\text{Full},y{=}0.8)$ a delay of $0.7\to(\text{Full},y{=}1.5)$ is \textbf{allowed} ($1.5\le2$); a delay of $1.4\to(y{=}2.2)$ is \textbf{disallowed} ($2.2>2$).
+
+%==================================================================
+\section{Tracing a run (core exam skill)}
+A run alternates timed and discrete transitions. \textbf{Recipe:}
+\begin{enumerate}
+\item Start at the initial state (mode + all clocks at their init values).
+\item \textbf{Timed step}: add $\delta$ to every clock; check the current mode's invariant holds throughout.
+\item \textbf{Discrete step}: pick an enabled edge (guard true); update mode, apply clock resets, leave other clocks unchanged.
+\item Repeat; write each state in the chain.
+\end{enumerate}
+\textbf{Worked example -- light switch} (clock $x$; \texttt{off->dim} resets $x{:=}0$; \texttt{dim->bright} guard $x\le1$):
+\[
+(\text{off},0)\xrightarrow{0.5}(\text{off},0.5)\xrightarrow{press?}(\text{dim},0)\xrightarrow{0.8}(\text{dim},0.8)\xrightarrow{press?}(\text{bright},0.8)
+\]
+The last edge needs $x\le1$: $0.8\le1$ \checkmark, and \texttt{bright} keeps $x$ (no reset).
+
+\textbf{Two clocks} grow \emph{together}: $(\text{Wait2},x{=}0.8,y{=}0)\xrightarrow{0.3}(1.1,0.3)\xrightarrow{0.72}(1.82,1.02)$ -- the difference $x-y$ never changes during a delay.
+
+\begin{lstlisting}
+def delay(clocks, d, invariant):       # clocks = {'x':0.8,'y':0.0}
+    new = {c: v + d for c, v in clocks.items()}
+    assert invariant(new), "invariant violated by delay"
+    return new
+
+def take_edge(clocks, guard, resets):  # resets = ['x']
+    assert guard(clocks), "guard not satisfied"
+    return {c: (0.0 if c in resets else v) for c, v in clocks.items()}
+
+# light switch: off -(0.5)-> press? (reset x) -(0.8)-> press? (need x<=1)
+s = {'x': 0.0}
+s = delay(s, 0.5, lambda c: True)           # (off, 0.5)
+s = take_edge(s, lambda c: True, ['x'])     # press? -> (dim, 0)
+s = delay(s, 0.8, lambda c: True)           # (dim, 0.8)
+s = take_edge(s, lambda c: c['x'] <= 1, []) # press? -> (bright, 0.8)
+print(s)   # {'x': 0.8}
+\end{lstlisting}
+
+%==================================================================
+\section{Modelling a timing spec (guard + invariant pattern)}
+To express ``after event, output must happen in the interval $[L,U]$'':
+\begin{keybox}
+\textbf{Guard} $x\ge L$ on the exit edge = \emph{earliest} it may fire (lower bound). \quad
+\textbf{Invariant} $x\le U$ on the waiting location = \emph{latest} it may stay (upper bound, \textbf{forces} it out).
+\end{keybox}
+A guard alone only \emph{enables} an edge -- it never \emph{forces} action; to guarantee the upper bound you \textbf{must} add the location invariant. On entry, reset the clock (\texttt{x:=0}).
+
+\textit{Example spec:} on \texttt{i?}, emit \texttt{u!} in $[2,4]$ and \texttt{v!} in $[3,5]$. Reset $x{:=}0$ on \texttt{i?}; give the wait-location invariant $x\le4$ and the \texttt{u!} edge guard $x\ge2$ (similarly $x\le5$ / $x\ge3$ for \texttt{v!}).
+
+%==================================================================
+\section{Parallel composition of timed processes}
+\begin{keybox}
+\centering $TP_1\,|\,TP_2=(P_1\,|\,P_2,\;\;CI_1\wedge CI_2)$ \quad(defined iff outputs are disjoint, as in async).
+\end{keybox}
+\textbf{Consequence (key):} a timed step of duration $d$ is allowed \textbf{only when both} components are willing to wait $d$ -- i.e.\ the \emph{tighter} invariant wins (``earliest deadline wins''). The discrete actions interleave / synchronize exactly as in the asynchronous model.
+
+\textit{Two timed buffers:} composite invariant $=(y_1\le UB_1)\wedge(y_2\le UB_2)$, so the buffer with the smaller bound forces the next move.
+
+%==================================================================
+\section{From timed process to timed automaton}
+\begin{keybox}
+A timed process is a \textbf{timed automaton} when, for every clock $x$: the only assignment is \texttt{x:=0}, and clocks appear only as $x\sim k$ ($\sim\in\{<,\le,=,\ge,>\}$, $k$ constant) in guards/invariants.
+\end{keybox}
+This lets you express constant lower/upper delay bounds, and is \textbf{closed under composition}. A \textbf{finite-state} timed automaton additionally has all non-clock variables of finite type -- the state space is still infinite (clocks are real) but verification is exactly solvable.
+
+%==================================================================
+\section{Fischer's protocol (timing-based mutual exclusion)}
+Shared variable \texttt{Turn} (0 = free) + a per-process clock $x$ with two timing constants. Path:
+\[\texttt{Idle}\to\texttt{Test}\to\texttt{Set}\to\texttt{Delay}\to\texttt{Check}\to\texttt{Crit}.\]
+\begin{itemize}
+\item \texttt{Test}: if \texttt{Turn=0}, reset $x{:=}0$ and go to \texttt{Set}; else retry.
+\item \texttt{Set} (invariant $x\le\Delta_1$): write \texttt{Turn:=myID} within $\Delta_1$ (max write time), then $x{:=}0$.
+\item \texttt{Check} (guard $x\ge\Delta_2$): wait at least $\Delta_2$, then re-read: \texttt{Turn=myID}? $\to$ \texttt{Crit}; else retry.
+\end{itemize}
+\begin{keybox}
+\centering Correct \textbf{iff} $\Delta_2>\Delta_1$. Then: mutual exclusion + deadlock-freedom hold. (Not starvation-free.) Works for any number of processes.
+\end{keybox}
+Verify in UPPAAL: \texttt{A[] not (P1.Crit and P2.Crit)}.
+
+\vspace{4pt}
+\hrule
+\vspace{2pt}
+{\footnotesize\textbf{Exam triage:} \emph{trace a run?} alternate delay (all clocks $+\delta$, check invariant) and edge (guard true, apply resets). \emph{delay legal?} endpoints satisfy $CI$. \emph{model delay $[L,U]$?} edge guard $x\ge L$ + location invariant $x\le U$ + reset on entry. \emph{compose?} $CI_1\wedge CI_2$, tighter invariant wins. \emph{is it a timed automaton?} only \texttt{x:=0} and \texttt{x$\sim$k}. \emph{Fischer?} needs $\Delta_2>\Delta_1$, check \texttt{A[] not (P1.Crit and P2.Crit)}.}

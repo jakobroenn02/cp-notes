@@ -1,0 +1,135 @@
+\chapter{Synchronous Model}
+
+\begin{center}
+{\Large\bfseries Synchronous Model}\\[1pt]
+{\small Exam cheat-sheet: \emph{execution traces, reaching a target state, extended state machines}}
+\end{center}
+\hrule
+\vspace{4pt}
+
+Exam Exercise~1 on synchronous components is almost always the same three tasks
+on a given component:
+\textbf{(a)} fill in an execution trace, \textbf{(b)} find inputs reaching a
+target state, \textbf{(c)} redraw the component as an extended state machine.
+
+%==================================================================
+\section{Notation cheat-sheet}
+
+\begin{itemize}
+  \item \textbf{Component} $=(I,O,S,\mathrm{Init},\mathrm{React})$: input vars,
+        output vars, state vars, initialisation, reaction code run \emph{once per round}.
+  \item \textbf{Reaction:} $\;s \xrightarrow{\,i/o\,} t\;$ means: in old state $s$,
+        with input $i$, produce output $o$ and move to new state $t$.
+  \item \textbf{State} is written as the tuple of state variables in declaration
+        order, e.g.\ $(\mathit{mode},x)$. Inputs are written as the tuple of input
+        vars; output after the ``$/$''.
+  \item \textbf{Events:} \texttt{event} $\in\{\bot,\top\}$;
+        \texttt{event(nat)} $\in\{\bot,0,1,2,\dots\}$.
+        $\bot$ = absent, $\top$ = present.
+  \item \texttt{x?} tests ``$x$ present''. \texttt{x!v} means \texttt{x:=v}
+        (and \texttt{x!} means \texttt{x:=present}).
+        \textbf{Unassigned output event $\Rightarrow$ absent ($\bot$) by default.}
+  \item \textbf{Combinational} = \emph{no} state variables (e.g.\ \texttt{out:=in1-in2}).
+        \textbf{Sequential} = has state variables (e.g.\ Delay).
+  \item \textbf{Deterministic} = single initial state \emph{and} for every $(s,i)$
+        exactly one $(o,t)$. (\texttt{choose}/nondeterminism breaks this.)
+\end{itemize}
+
+%==================================================================
+\section{(a) Fill in an execution trace}
+
+\textbf{Recipe (one round at a time):}
+\begin{enumerate}
+  \item Write the current state tuple and plug the given input values in.
+  \item Run the update code \emph{top to bottom}, line by line, keeping a scratch
+        value for each variable.
+  \item Read off the \textbf{output} ($o$) and the \textbf{new state} ($t$).
+  \item Carry $t$ forward as the start state of the next round; repeat.
+\end{enumerate}
+\begin{keybox}
+\textbf{Trap:} if the code first flips the \texttt{mode} and \emph{then} uses
+\texttt{mode}, the later lines use the \emph{new} mode. Always update in code order.
+\end{keybox}
+
+\textbf{Worked (AddOrMultiply, state $(\mathit{mode},x)$, input $(\mathit{in},\mathit{flip})$):}
+code is ``\texttt{if flip? then flip mode}; then if \texttt{add}: \texttt{x:=x+in}
+else \texttt{x:=x*in}; \texttt{out:=x}''.
+\[
+(\mathrm{add},0)
+\xrightarrow{(2,\bot)/2}(\mathrm{add},2)
+\xrightarrow{(3,\top)/6}(\mathrm{mul},6)
+\xrightarrow{(1,\top)/7}(\mathrm{add},7)
+\xrightarrow{(3,\bot)/10}(\mathrm{add},10)
+\]
+Round~2 check: \texttt{flip} present $\Rightarrow$ mode becomes \texttt{mul};
+\emph{then} \texttt{x:=x*in}$=2\cdot3=6$; \texttt{out}$=6$.
+
+%==================================================================
+\section{(b) Find inputs reaching a target state}
+
+\textbf{Recipe:}
+\begin{enumerate}
+  \item Note the target tuple, e.g.\ $(\mathrm{mul},42)$, and the initial state.
+  \item Work out the \emph{effect of one input} on each variable (what makes the
+        mode switch, what arithmetic is applied).
+  \item Find the \textbf{minimum length}: if you must reach a mode you cannot start
+        in, you need at least one switching input, so often length $\ge 2$.
+  \item Construct concrete inputs that produce the target value; remember to set
+        each event to $\bot$ or $\top$ as required.
+\end{enumerate}
+
+\textbf{Worked:} reach $(\mathrm{mul},42)$ from $(\mathrm{add},0)$.
+First input $(a,\bot)$ stays in \texttt{add} and sets $x:=0+a=a$; second input
+$(b,\top)$ flips to \texttt{mul} then sets $x:=a\cdot b$. Need $a\cdot b=42$, e.g.
+\[
+(\mathrm{add},0)\xrightarrow{(42,\bot)/42}(\mathrm{add},42)
+\xrightarrow{(1,\top)/42}(\mathrm{mul},42).
+\]
+Any factor pair works: $(42,\bot)(1,\top)$, $(21,\bot)(2,\top)$, $(7,\bot)(6,\top)$, \dots
+
+%==================================================================
+\section{(c) Redraw as an extended state machine}
+
+\textbf{Recipe:}
+\begin{enumerate}
+  \item The named state variable (e.g.\ \texttt{mode}) becomes the
+        \textbf{modes/bubbles}: one bubble per possible value.
+  \item Every \emph{other} state variable stays a \textbf{data variable},
+        declared with its initial value on the start-arrow
+        (e.g.\ \texttt{int x:=0}). Put the start arrow into the initial mode.
+  \item For each mode and each relevant case of the inputs, draw a transition.
+        Find its \textbf{target mode} by simulating the mode-switch logic, and label it
+        \texttt{guard? $\to$ updates; out:=\dots}.
+        Use a self-loop when the mode does not change.
+  \item Updates on a switching transition use the behaviour of the
+        \emph{destination} mode (same trap as in (a)).
+\end{enumerate}
+
+\textbf{Worked (AddOrMultiply)}, modes \texttt{add} and \texttt{mul}, init \texttt{add},
+data \texttt{int x:=0}:
+\begin{itemize}
+  \item \texttt{add} $\xrightarrow{\;\neg\texttt{flip?}\;\to\;x:=x+in;\ out:=x\;}$ \texttt{add}\quad(self-loop)
+  \item \texttt{add} $\xrightarrow{\;\texttt{flip?}\;\to\;x:=x*in;\ out:=x\;}$ \texttt{mul}
+  \item \texttt{mul} $\xrightarrow{\;\neg\texttt{flip?}\;\to\;x:=x*in;\ out:=x\;}$ \texttt{mul}\quad(self-loop)
+  \item \texttt{mul} $\xrightarrow{\;\texttt{flip?}\;\to\;x:=x+in;\ out:=x\;}$ \texttt{add}
+\end{itemize}
+(The two switching edges cross: \texttt{add}$\to$\texttt{mul} \emph{multiplies},
+\texttt{mul}$\to$\texttt{add} \emph{adds}, because the arithmetic uses the new mode.)
+
+%==================================================================
+\section{Quick facts for short-answer questions}
+
+\begin{itemize}
+  \item ``Is it combinational?'' $\Rightarrow$ Yes iff it has no state variables.
+  \item ``Is it deterministic?'' $\Rightarrow$ Yes iff one initial state and a unique
+        $(o,t)$ for every $(s,i)$; a \texttt{choose} makes it nondeterministic.
+  \item \textbf{Synchrony hypothesis:} update code is instantaneous; outputs produced
+        and inputs read in the \emph{same} round; all composed components fire
+        simultaneously each round.
+  \item Event-triggered component reacts only in rounds where its trigger event is present.
+\end{itemize}
+
+\vspace{4pt}
+\hrule
+\vspace{2pt}
+{\footnotesize\textbf{Exam triage:} \emph{trace?} run code top-to-bottom each round; new mode takes effect immediately. \emph{reach target?} compute mode-switch cost, pick factor pair for numeric target. \emph{ESM?} mode var $\to$ bubbles; other state vars $\to$ data on start-arrow; one edge per (mode, guard) case; switching edges use destination-mode arithmetic. \emph{combinational?} no state vars. \emph{deterministic?} unique $(o,t)$ for every $(s,i)$.}

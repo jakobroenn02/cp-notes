@@ -1,0 +1,97 @@
+\chapter{Safety Requirements}
+
+\begin{center}
+{\Large\bfseries Safety Requirements}\\[1pt]
+{\small Exam cheat-sheet: \emph{transition systems, invariants, inductive invariants, symbolic Post}}
+\end{center}
+\hrule
+\vspace{4pt}
+
+%==================================================================
+\section{Core definitions to quote verbatim}
+A \textbf{transition system} $T=(S,\texttt{Init},\texttt{Trans})$: state variables $S$, initial-state description \texttt{Init}, and transition description \texttt{Trans} (code updating $S$). Semantically: states $Q_S$, initial states $[\texttt{Init}]\subseteq Q_S$, transitions $[\texttt{Trans}]\subseteq Q_S\times Q_S$. Every synchronous/asynchronous component has an underlying transition system.
+\begin{itemize}
+  \item \textbf{Reachable state:} a state $s$ for which there is a \emph{finite} execution from an initial state ending in $s$.
+  \item \textbf{Invariant:} property $\varphi$ such that \emph{every reachable state} satisfies $\varphi$.
+  \item \textbf{Inductive invariant:} property $\varphi$ such that (1) every \emph{initial} state satisfies $\varphi$, \emph{and} (2) for every state $s$ satisfying $\varphi$ and every transition $(s,t)$, the state $t$ also satisfies $\varphi$ (closed under transitions).
+\end{itemize}
+
+%==================================================================
+\section{Three logical facts that answer most sub-questions}
+\begin{keybox}
+\begin{itemize}
+  \item Inductive invariant $\Rightarrow$ invariant. \textbf{Converse fails:} an invariant need not be inductive.
+  \item The \textbf{set of reachable states} is itself an inductive invariant --- in fact the \emph{strongest} one. A formula that exactly describes the reachable set is always an inductive invariant.
+  \item If $\varphi$ is \emph{not even an invariant}, it cannot be an inductive invariant (shortcut for part (c)).
+\end{itemize}
+\end{keybox}
+
+%==================================================================
+\section{The main exam question: Reachable States (a)--(e)}
+You are given an extended state machine (or synchronous component) and a formula $\varphi_1$. \textbf{Key hint: the mode is an implicit state variable}, so a state is the tuple $(\text{mode},x,\dots)$.
+
+\textbf{(a) Provide the reachable part of the transition system.} Start from the initial state $(\text{mode}_0,x_0)$; repeatedly apply every enabled mode-switch/update; collect all states until no new ones appear. Draw them with arrows. (If a loop pumps a counter forever, the answer is \emph{infinitely many} reachable states --- still describe the pattern.)
+
+\textbf{(b) Is $\varphi_1$ an invariant?} Check $\varphi_1$ on \emph{every reachable state} from (a).
+\begin{itemize}
+  \item All satisfy it $\Rightarrow$ \textbf{Yes}; justify: ``all reachable states satisfy $\varphi_1$.''
+  \item One reachable state violates it $\Rightarrow$ \textbf{No}; name that state as the witness.
+\end{itemize}
+
+\textbf{(c) Is $\varphi_1$ an inductive invariant?} (Even if it \emph{is} an invariant!)
+\begin{itemize}
+  \item Look for \emph{any} state $s$ (reachable \emph{or not}) that satisfies $\varphi_1$ but has a transition to a $t$ that violates $\varphi_1$. If found $\Rightarrow$ \textbf{No}, give $(s,t)$ as witness.
+  \item If $\varphi_1$ failed (b), immediately answer \textbf{No} (``$\varphi_1$ is not even an invariant'').
+  \item If initial states satisfy $\varphi_1$ \emph{and} no such bad $(s,t)$ exists $\Rightarrow$ \textbf{Yes}.
+\end{itemize}
+
+\textbf{(d) Give another invariant $\varphi_2$.} Pick something weaker/looser that still holds on all reachable states but differs from $\varphi_1$ (e.g.\ widen a bound). Need not be inductive.
+
+\textbf{(e) Give another inductive invariant $\varphi_3$.} \textbf{Safe universal recipe:} write the formula that \emph{exactly describes the reachable set} (mode-by-mode). It is always inductive. Form:
+\[
+\bigl(\text{mode}=A \wedge \text{(x-constraint for A)}\bigr)\;\vee\;\bigl(\text{mode}=B \wedge \text{(x-constraint for B)}\bigr)\;\vee\cdots
+\]
+
+%==================================================================
+\section{Fully worked template}
+ESM: modes $A,B$; \texttt{int x:=0}; edge $A \xrightarrow{x:=x+1} B$ and $B \xrightarrow{x:=x-1} A$. Let $\varphi_1: x=0 \vee x=1$. State order $(\text{mode},x)$.
+\begin{itemize}
+  \item \textbf{(a)} Reachable part: $(A,0)\to(B,1)\to(A,0)\to\cdots$, i.e.\ only $\{(A,0),(B,1)\}$.
+  \item \textbf{(b)} \textbf{Yes} --- both reachable states satisfy $\varphi_1$ ($x=0$ and $x=1$).
+  \item \textbf{(c)} \textbf{No} --- the state $(A,1)$ satisfies $\varphi_1$, but its successor $(B,2)$ does not. (Note $(A,1)$ is unreachable, but inductiveness must hold for \emph{all} states satisfying $\varphi_1$.)
+  \item \textbf{(d)} e.g.\ $\varphi_2: x\ge 0$.
+  \item \textbf{(e)} $\varphi_3: (\text{mode}=A \wedge x=0) \vee (\text{mode}=B \wedge x=1)$ --- exactly the reachable set.
+\end{itemize}
+\textbf{Variant:} $\varphi_1: x<5$, reachable set $\{(v,42)\mid v\le 5\}$. (a) infinitely many. (b) \textbf{No}, $(5,42)$ is reachable but $5\not<5$. (c) \textbf{No}, not even an invariant. (d) $x\le 6$. (e) $x\le 5 \wedge \text{mode}=42$.
+
+%==================================================================
+\section{Symbolic representation (transition formula)}
+Represent states by a formula over $S$, transitions by a formula $\varphi_T$ over $S\cup S'$ (\textbf{primed = value after the step}).
+\begin{itemize}
+  \item Assignment $x:=e$ becomes $x'=e$. \textbf{Every unchanged variable must be stated explicitly}, e.g.\ $y'=y$.
+  \item \texttt{if C then U1 else U2} becomes $(C \wedge \varphi_{U1}) \vee (\neg C \wedge \varphi_{U2})$.
+  \item Guarded step \texttt{G $\rightarrow$ U} that may also idle: $(G \wedge \varphi_U) \vee (\neg G \wedge \text{all vars unchanged})$.
+\end{itemize}
+
+%==================================================================
+\section{Checking an invariant by reachability (\texttt{Post} / BFS)}
+$\varphi$ is an invariant $\iff$ the error set $\neg\varphi$ is \textbf{not reachable}. Compute reachable states by BFS:
+\[
+reach_0=[\texttt{Init}],\qquad reach_{i+1}=reach_i\cup\texttt{Post}(reach_i).
+\]
+Stop when (i) $\neg\varphi$ is hit (invariant \textbf{fails}, counterexample found) or (ii) no new states appear (invariant \textbf{holds}).
+
+\begin{keybox}
+\textbf{Symbolic} $\texttt{Post}(A,\texttt{Trans})$ in 3 steps:
+\begin{enumerate}
+  \item \textbf{Conjoin} region $A$ with \texttt{Trans} (intersect: all transitions starting inside $A$).
+  \item \textbf{Existentially quantify} the old vars $S$ (project them out, leaving a formula in $S'$).
+  \item \textbf{Rename} $S'\to S$.
+\end{enumerate}
+\end{keybox}
+\textbf{Worked:} $A:\;0\le x\le 10$, $\texttt{Trans}:\;x'=2x+1$. Conjoin $\to (0\le x\le 10)\wedge(x'=2x+1)$; eliminate $x$ via $x=(x'-1)/2 \to 1\le x'\le 21$; rename $\to \boxed{1\le x\le 21}$.
+
+\vspace{4pt}
+\hrule
+\vspace{2pt}
+{\footnotesize\textbf{Exam triage:} \emph{reachable states?} BFS from init, apply all transitions. \emph{invariant?} check every reachable state. \emph{inductive invariant?} also check non-reachable states satisfying $\varphi$ --- find bad $(s,t)$ pair. \emph{inductive invariant for (e)?} describe reachable set mode-by-mode. \emph{Post?} conjoin, existentially quantify $S$, rename $S'{\to}S$.}

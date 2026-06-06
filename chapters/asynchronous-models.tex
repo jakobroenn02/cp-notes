@@ -1,0 +1,25 @@
+\chapter{Asynchronous Models}
+
+\section{Core assumption}
+\begin{defbox}
+An asynchronous system places no fixed upper bound on message delay, process speed, or clock drift. Correctness must not depend on timing guarantees.
+\end{defbox}
+
+\section{Typical properties}
+\begin{itemize}
+  \item Messages may be delayed arbitrarily long.
+  \item A process may run much slower than its peers.
+  \item Timeouts are only heuristics, not proof of failure.
+\end{itemize}
+
+\section{Why it matters}
+\begin{keybox}
+Asynchrony is the most conservative model, so protocols that work here are usually robust under timing uncertainty.
+\end{keybox}
+
+\section{Exam prompts}
+\begin{itemize}
+  \item Why can an asynchronous algorithm not rely on bounded delays?
+  \item What is the practical impact of using timeouts in this model?
+  \item Give an example of a problem that becomes harder in a fully asynchronous setting.
+\end{itemize}
