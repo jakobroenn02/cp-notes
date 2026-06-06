@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(latexmk -xelatex -interaction=nonstopmode -synctex=1 main.tex)",
+      "Bash(git -C /home/jj/Downloads/cp/notes status)",
+      "Bash(gh auth *)",
+      "Bash(git init *)",
+      "Bash(git add *)",
+      "Bash(git -C /home/jj/Downloads/cp/notes branch -m main)",
+      "Bash(git -C /home/jj/Downloads/cp/notes commit -m ' *)",
+      "Bash(gh repo *)",
+      "Bash(git -C /home/jj/Downloads/cp/notes add main.pdf)",
+      "Bash(git -C /home/jj/Downloads/cp/notes push)",
+      "Bash(git -C /home/jj/Downloads/cp/notes add .gitignore main.pdf)"
+    ]
+  }
+}
