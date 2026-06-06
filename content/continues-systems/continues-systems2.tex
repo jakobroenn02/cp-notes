@@ -33,6 +33,14 @@ So the controllers become (with $v$ = velocity of the measured variable):
 \text{PID}: u = K_P e - K_D v + K_I I .
 \]
 
+\begin{warnbox}
+\begin{itemize}[leftmargin=1.2em,itemsep=1pt,topsep=2pt]
+  \item \textbf{Derivative term is $-v$, not $+v$.} \quad $\tfrac{d}{dt}e = -\tfrac{d}{dt}x = -v$ because $r$ is constant.
+  \item \textbf{PID has a minus on the D term:} $u = K_P e \;{\color{red!70!black}-}\; K_D v + K_I I$.
+  \item \textbf{Adding I adds a state:} extend \texttt{x} with $I$ and add an extra \texttt{0} to \texttt{x0}.
+\end{itemize}
+\end{warnbox}
+
 \subsection*{Step 2 --- The block diagram (part b)}
 Fill the boxes/arrows like this (worth easy points):
 \begin{itemize}

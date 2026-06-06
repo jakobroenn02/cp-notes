@@ -68,6 +68,15 @@
   title=Example,#1
 }
 
+\newtcolorbox{warnbox}[1][]{
+  breakable,
+  enhanced,
+  colback=white,
+  colframe=red!70!black,
+  fonttitle=\bfseries\small,
+  title=\textcolor{red!70!black}{$\blacktriangleright$ Don't lose points here},#1
+}
+
 \newcommand{\topic}[1]{\section{#1}}
 \newcommand{\subtopic}[1]{\subsection{#1}}
 \newcommand{\notation}[1]{\textcolor{NotesGray}{\textbf{#1}}}
