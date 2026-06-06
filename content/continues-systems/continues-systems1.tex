@@ -69,14 +69,13 @@ Numerically solve $\dfrac{dx}{dt}=f(x,t)$ from $x_0$ in steps of size $h$.
 \begin{center}\small
 \begin{tabular}{cccc}
 \toprule
-$i$ & $t_i$ & $\tilde x_{i+1}=\tilde x_i+h\cdot f$ & exact $x(t_i)$\\
+$i$ & $t_i$ & $\tilde x_{i+1}=\tilde x_i+h\cdot f$ & exact $x(t_{i+1})$\\
 \midrule
-0 & 0 & $0+1\cdot0=0$ & 0\\
-1 & 1 & $0+1\cdot1=1$ & 0.5\\
-2 & 2 & $1+1\cdot2=3$ & 2\\
-3 & 3 & $3+1\cdot3=6$ & 4.5\\
-4 & 4 & $6+1\cdot4=10$ & 8\\
-5 & 5 & --- & 12.5\\
+0 & 0 & $0+1\cdot0=0$ & 0.5\\
+1 & 1 & $0+1\cdot1=1$ & 2\\
+2 & 2 & $1+1\cdot2=3$ & 4.5\\
+3 & 3 & $3+1\cdot3=6$ & 8\\
+4 & 4 & $6+1\cdot4=10$ & 12.5\\
 \bottomrule
 \end{tabular}
 \end{center}
