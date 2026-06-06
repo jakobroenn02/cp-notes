@@ -1,0 +1,96 @@
+\chapter{Hybrid Systems}
+
+\section*{Hybrid Systems (Chapter 9)}
+
+\emph{Exam reality check:} in the last four exams hybrid systems was \textbf{not} a standalone
+exercise --- the continuous section is tested via the PID controller (Exercise 6). Hybrid systems
+is most likely to show up as a small part of the timed-model exercise or as a short
+``draw/complete the automaton'', ``trace the execution'', or ``is it Zeno?'' question. Learn the
+mechanics below; you do not need heavy theory.
+
+\textbf{One-line idea:} a hybrid automaton is a timed automaton where, instead of clocks ticking at
+rate $1$, continuous variables evolve by \emph{differential equations} that can differ per mode,
+and can \emph{jump} (reset) on a mode-switch.
+
+\subsection*{Step 1 --- Read/draw a hybrid automaton (label these 5 things)}
+For each \textbf{mode} (bubble) and each \textbf{switch} (arrow):
+\begin{itemize}
+  \item \textbf{Continuous variables:} declared \texttt{cont} (real). E.g.\ \texttt{cont} $h,v$.
+  \item \textbf{Flow (inside the bubble):} the differential equations, written $dx = \dots$
+        (means $\tfrac{d}{dt}x$). Different modes can have different flows.
+  \item \textbf{Invariant (inside the bubble):} how long you may \emph{stay} in the mode
+        (upper-bound condition, like a timed-model invariant). E.g.\ $h \ge 0$, $T \le 70$.
+  \item \textbf{Guard (on the arrow):} when the switch \emph{may} fire. E.g.\ $(T \le 62)?$,
+        $h = 0 \to$.
+  \item \textbf{Reset/update (on the arrow):} discrete jump applied to variables. E.g.\
+        $v := -a\,v$, $d := d/2$, $x := 0$.
+\end{itemize}
+Guard vs invariant: same window idea as the timed model --- \emph{guard} = lower bound enabling the
+jump, \emph{invariant} = upper bound forcing you to leave.
+
+\textbf{Worked: bouncing ball.} One mode \emph{Fall}; \texttt{cont} $h:=h_0,\,v:=v_0$;
+flow $dh=v,\ dv=-g$; invariant $h\ge 0$; self-loop guard $h=0$, reset $v:=-a\,v$ (with $0<a<1$).
+
+\textbf{Worked: thermostat.} Two modes \emph{off}/\emph{on}; \texttt{real} $T$, $60\le T\le 70$.
+Off: $dT=-k_2$, invariant $T\ge 60$, switch to on guarded by $T\le 62$.
+On: $dT=k_1(70-T)$, invariant $T\le 70$, switch to off guarded by $T\ge 68$.
+
+\subsection*{Step 2 --- Trace an execution}
+Alternate two kinds of step starting from the initial state:
+\begin{itemize}
+  \item \textbf{Timed step} $\xrightarrow{\;\delta\;}$: stay in the mode for time $\delta$;
+        update continuous vars by \emph{solving / plugging into} the flow equation; the invariant
+        must hold the \emph{whole} time; discrete vars unchanged.
+  \item \textbf{Discrete step} $\xrightarrow{\varepsilon}$: instantaneous (duration $0$); take a
+        switch whose guard holds and apply its reset.
+\end{itemize}
+Example shape: $(\text{off},66)\xrightarrow{2.5}(\text{off},61)\xrightarrow{\varepsilon}
+(\text{on},61)\xrightarrow{3.7}(\text{on},69.0)\xrightarrow{\varepsilon}(\text{off},69.0)\dots$
+For constant flow ($dT=-k_2$) use $T(t)=T_0-k_2 t$; if the flow is given as an explicit solution in
+the slides, just substitute the elapsed time.
+
+\subsection*{Step 3 --- Bouncing-ball / Zeno computation (memorise the chain)}
+With $dv=-g$, reset $v:=-a\,v$, start height $h_0$, $v_0=0$:
+\[
+t_1=\sqrt{\tfrac{2h_0}{g}},\quad
+v_1=\sqrt{2gh_0}\ (\text{speed before 1st bump}),\quad
+\text{after bump } v_2=a\,v_1 .
+\]
+Speed after $k$ bumps $=a^k v_1$; time between bump $k$ and the next $=\dfrac{2a^k v_1}{g}$.
+The total time is a \textbf{geometric series} $\sum_k \tfrac{2v_1}{g}a^k = \tfrac{2v_1}{g}\cdot
+\tfrac{1}{1-a}$, which is \emph{finite} $\Rightarrow$ infinitely many bumps in finite time
+$\Rightarrow$ \textbf{Zeno}.
+
+\subsection*{Step 4 --- Zeno vs non-Zeno: decide and fix}
+\begin{itemize}
+  \item \textbf{Definition:} an infinite execution $s_0\xrightarrow{t_1}s_1\xrightarrow{t_2}\dots$
+        is \emph{Zeno} if $\sum_i t_i$ is bounded (time stops), \emph{non-Zeno} if the sum diverges.
+        A state is Zeno if \emph{every} execution from it is Zeno; a process is non-Zeno if every
+        reachable state has \emph{some} non-Zeno execution.
+  \item \textbf{How to argue:} look at the durations between discrete steps. Shrinking toward $0$ with
+        a convergent sum $\Rightarrow$ Zeno (bouncing ball, $d:=d/2$ with invariant $x\le d$).
+        A fixed positive lower bound on each duration $\Rightarrow$ non-Zeno (thermostat).
+  \item \textbf{Fix (make non-Zeno):} add a guard giving a \emph{minimum dwell time}, or a sink mode.
+        Bouncing ball: add a \emph{Stop} mode entered when $h=0\ \&\ v<\epsilon$, where $dh=dv=0$ ---
+        below a small speed you stop modelling bounces, so durations can't shrink to $0$.
+  \item \textbf{Why it matters:} a Zeno process can \emph{stop global time advancing}, making states
+        of \emph{other} parallel processes unreachable.
+\end{itemize}
+
+\subsection*{Step 5 --- Stability of hybrid systems (the one key fact)}
+Each mode's dynamics $d\mathbf{s}=A\mathbf{s}$ can be individually stable, yet \textbf{switching
+between modes can make the whole system unstable} (and the reverse can also happen). So you cannot
+conclude stability of a hybrid system just from per-mode stability --- the switching schedule
+matters. Per mode, check stability the usual way (a $1$-D mode $ds=cs$ is asymptotically stable iff
+$c<0$).
+
+\subsection*{Step 6 --- Definitions cheat (for short-answer)}
+\textbf{Hybrid process = } an asynchronous process $P$ where some state variables are \texttt{cont}
+(real), $+$ a continuous-time invariant $CI$, $+$ for every \texttt{cont} output a
+Lipschitz-continuous expression for its \emph{value}, $+$ for every \texttt{cont} state variable a
+Lipschitz-continuous expression for its \emph{rate of change}.\\
+\textbf{Timed-action semantics:} over a duration $\delta$, discrete variables stay fixed, each
+continuous output satisfies its algebraic equation, each continuous state variable's derivative
+satisfies its differential equation, and the invariant $CI$ holds at \emph{all} times in $[0,\delta]$.\\
+\textbf{Generalises:} the timed model (clocks are the special case $dx=1$), continuous dynamical
+systems (now with discrete jumps), and the asynchronous model (multi-agent/communication).
